@@ -1,0 +1,56 @@
+module tasks
+
+import "@ansipkl/AnsibleBuiltin.pkl" as Ab
+import "@ansipkl/Playbook.pkl" as P
+
+main = P.NewRole(new Listing {
+    new Ab.SetFact {
+        options_mixin {
+            hasProfile = "{{ hostvars[inventory_hostname][profile] is defined }}"
+        }
+    }.Task()
+
+    new P.Block {
+        `when` = "hasProfile"
+        block {
+            new Ab.SetFact {
+                options_mixin {
+                    params = "{{ hostvars[inventory_hostname][profile] }}"
+                }
+            }.Task()
+
+            new Ab.Apt {
+                name = "install nginx"
+                options {
+                    name { "nginx" }
+                }
+            }.Task()
+
+            new Ab.Copy {
+                name = "copy server config"
+                options {
+                    dest = "/etc/nginx/sites-available/{{ params.server_name }}"
+                    content = "{{ params.server }}"
+                }
+            }.Task()
+
+            new Ab.Shell {
+                name = "enable server"
+                options {
+                    chdir = "/etc/nginx/sites-enabled"
+                    cmd = "ln -sf ../sites-available/{{ params.server_name }} ./"
+                }
+            }.Task()
+
+            new Ab.SystemdService {
+                name = "enable nginx"
+                options {
+                    name = "nginx"
+                    state = "restarted"
+                    enabled = true
+                }
+            }.Task()
+        }
+    }
+})
+

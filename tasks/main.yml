@@ -1,0 +1,24 @@
+---
+- ansible.builtin.set_fact:
+    hasProfile: '{{ hostvars[inventory_hostname][profile] is defined }}'
+- block:
+  - ansible.builtin.set_fact:
+      params: '{{ hostvars[inventory_hostname][profile] }}'
+  - name: install nginx
+    ansible.builtin.apt:
+      name:
+      - nginx
+  - name: copy server config
+    ansible.builtin.copy:
+      content: '{{ params.server }}'
+      dest: /etc/nginx/sites-available/{{ params.server_name }}
+  - name: enable server
+    ansible.builtin.shell:
+      chdir: /etc/nginx/sites-enabled
+      cmd: ln -sf ../sites-available/{{ params.server_name }} ./
+  - name: enable nginx
+    ansible.builtin.systemd_service:
+      enabled: true
+      name: nginx
+      state: restarted
+  when: hasProfile
